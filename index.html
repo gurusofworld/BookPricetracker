@@ -1,14 +1,15 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Top Books in Discounted Price</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <meta name="description" content="Find from where you can buy in discount price — Malayalam & English books across Indian stores (front‑only demo)">
+  <meta name="description" content="Find where to buy at a discount — Malayalam & English books across Indian stores (demo)">
   <style>
     .line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .badge{font-size:10px;padding:.15rem .45rem;border:1px solid rgb(226 232 240);background:#f8fafc;border-radius:.5rem}
+    .ellipsis{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   </style>
 </head>
 <body class="bg-slate-50 text-slate-900">
@@ -17,50 +18,42 @@
       <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white grid place-items-center font-bold">₹</div>
       <div>
         <h1 class="text-xl font-bold leading-tight">Top Books in Discounted Price</h1>
-        <p class="text-xs text-indigo-700 font-medium">Find from where you can buy in discount price</p>
+        <p class="text-xs text-indigo-700 font-medium">Find where you can buy at a discount</p>
       </div>
     </div>
   </header>
 
   <main class="max-w-6xl mx-auto px-4 py-6">
-    <!-- Search & Filters -->
-    <form id="searchForm" class="bg-white border rounded-2xl p-4 shadow-sm grid grid-cols-1 md:grid-cols-12 gap-3">
-      <input id="q" class="md:col-span-6 border rounded-xl px-3 py-2" placeholder="Search by title, author, or ISBN (e.g., Aadujeevitham)" />
-      <select id="lang" class="md:col-span-2 border rounded-xl px-3 py-2">
-        <option value="">All languages</option>
-      </select>
-      <select id="publisher" class="md:col-span-2 border rounded-xl px-3 py-2">
-        <option value="">All publishers</option>
-      </select>
-      <button class="md:col-span-2 bg-indigo-600 text-white rounded-xl px-4 py-2 font-medium">Search</button>
+    <!-- Search (no language/publisher tabs) -->
+    <form id="searchForm" class="bg-white border rounded-2xl p-4 shadow-sm flex gap-3">
+      <input id="q" class="flex-1 border rounded-xl px-3 py-2" placeholder="Search by title or author (e.g., Aadujeevitham)" />
+      <button class="bg-indigo-600 text-white rounded-xl px-4 py-2 font-medium">Search</button>
     </form>
 
-```
-<!-- Top Lists -->
-<section class="mt-8">
-  <h2 class="text-lg font-semibold mb-2">Top 5 • Malayalam (Fiction & Non‑fiction)</h2>
-  <div id="malayalamTop" class="grid grid-cols-2 md:grid-cols-5 gap-4"></div>
-</section>
+    <!-- Top Lists (Best Selling) -->
+    <section class="mt-8">
+      <h2 class="text-lg font-semibold mb-2">Top 5 Best Selling • Malayalam</h2>
+      <div id="malayalamTop" class="grid grid-cols-2 md:grid-cols-5 gap-4"></div>
+    </section>
 
-<section class="mt-8">
-  <h2 class="text-lg font-semibold mb-2">Top 5 • English (Fiction & Non‑fiction)</h2>
-  <div id="englishTop" class="grid grid-cols-2 md:grid-cols-5 gap-4"></div>
-</section>
+    <section class="mt-8">
+      <h2 class="text-lg font-semibold mb-2">Top 5 Best Selling • English</h2>
+      <div id="englishTop" class="grid grid-cols-2 md:grid-cols-5 gap-4"></div>
+    </section>
 
-<!-- Results: Best price -->
-<section class="mt-10">
-  <h2 class="text-lg font-semibold mb-2">Best Price per Title/ISBN</h2>
-  <p id="resultMeta" class="text-xs text-slate-500 mb-3"></p>
-  <div id="bestGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-</section>
+    <!-- Results: Best price -->
+    <section class="mt-10">
+      <h2 class="text-lg font-semibold mb-2">Best Price per Title</h2>
+      <p id="resultMeta" class="text-xs text-slate-500 mb-3"></p>
+      <div id="bestGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </section>
 
-<!-- Results: All offers -->
-<section class="mt-10">
-  <h3 class="text-base font-semibold mb-2">All Offers (merged)</h3>
-  <div id="allGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-</section>
-```
-
+   
+    <!-- Reviews: fixed 5 links with icons -->
+    <section class="mt-12">
+      <h2 class="text-lg font-semibold mb-2">Book Reviews</h2>
+      <div id="reviewSites" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3"></div>
+    </section>
   </main>
 
   <footer class="mt-16 py-8 text-center text-xs text-slate-500">
@@ -68,176 +61,102 @@
   </footer>
 
 <script>
-// ========= Top lists (mock, front‑only) =========
+// ----- helpers -----
+const fmtINR = n => '₹' + Number(n).toLocaleString('en-IN');
+function imgTag(src, alt, cls=''){
+  return `<img loading="lazy" referrerpolicy="no-referrer" src="${src}" alt="${alt}" class="${cls}"/>`;
+}
+function coverUrl(isbn, titleFallback){
+  if(isbn) return `https://covers.openlibrary.org/b/isbn/${encodeURIComponent(isbn)}-L.jpg`;
+  return placeholderCover(titleFallback);
+}
+function placeholderCover(text='Book'){
+  const t = encodeURIComponent(text.slice(0,36));
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='600' height='880'><rect width='100%' height='100%' fill='#eef2ff'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='Inter,Arial' font-size='36' fill='#4338ca'>${t}</text></svg>`;
+  return `data:image/svg+xml;charset=utf8,${svg}`;
+}
+
+// ----- Top 5 Best Selling (static demo lists) -----
 const MALAYALAM_TOP = [
-  { title:'Aadujeevitham', author:'Benyamin', lang:'Malayalam', img:'https://placehold.co/300x400?text=Aadujeevitham' },
-  { title:'Randamoozham', author:'M.T. Vasudevan Nair', lang:'Malayalam', img:'https://placehold.co/300x400?text=Randamoozham' },
-  { title:'Manjaveyil Maranangal', author:'Benyamin', lang:'Malayalam', img:'https://placehold.co/300x400?text=Manjaveyil' },
-  { title:'Aarachar', author:'K.R. Meera', lang:'Malayalam', img:'https://placehold.co/300x400?text=Aarachar' },
-  { title:'Oru Desathinte Katha', author:'S.K. Pottekkatt', lang:'Malayalam', img:'https://placehold.co/300x400?text=Oru+Desathinte+Katha' },
+  { title:'Aadujeevitham', author:'Benyamin', img:coverUrl('9788126421062','Aadujeevitham') },
+  { title:'Randamoozham', author:'M.T. Vasudevan Nair', img:coverUrl('9788126402719','Randamoozham') },
+  { title:'Manjaveyil Maranangal', author:'Benyamin', img:coverUrl('9788126441763','Manjaveyil Maranangal') },
+  { title:'Aarachar', author:'K.R. Meera', img:coverUrl('9788126427408','Aarachar') },
+  { title:'Oru Desathinte Katha', author:'S.K. Pottekkatt', img:coverUrl('9788126419335','Oru Desathinte Katha') },
 ];
 const ENGLISH_TOP = [
-  { title:'The Alchemist', author:'Paulo Coelho', lang:'English', img:'https://placehold.co/300x400?text=The+Alchemist' },
-  { title:'1984', author:'George Orwell', lang:'English', img:'https://placehold.co/300x400?text=1984' },
-  { title:'The Kite Runner', author:'Khaled Hosseini', lang:'English', img:'https://placehold.co/300x400?text=Kite+Runner' },
-  { title:'The God of Small Things', author:'Arundhati Roy', lang:'English', img:'https://placehold.co/300x400?text=God+of+Small+Things' },
-  { title:'Sapiens', author:'Yuval Noah Harari', lang:'English', img:'https://placehold.co/300x400?text=Sapiens' },
+  { title:'The Alchemist', author:'Paulo Coelho', img:coverUrl('9780061122415','The Alchemist') },
+  { title:'1984', author:'George Orwell', img:coverUrl('9780451524935','1984') },
+  { title:'The Kite Runner', author:'Khaled Hosseini', img:coverUrl('9781594631931','The Kite Runner') },
+  { title:'The God of Small Things', author:'Arundhati Roy', img:coverUrl('9780670086067','The God of Small Things') },
+  { title:'Sapiens', author:'Yuval Noah Harari', img:coverUrl('9780099590088','Sapiens') },
 ];
-
-// ========= Stores + mock catalog with offers (price comparison) =========
-const STORES = [
-  { id:'dcbooks', label:'DC Books' },
-  { id:'kbs', label:'Kerala Book Store' },
-  { id:'indulekha', label:'Indulekha' },
-  { id:'amazon', label:'Amazon India' },
-  { id:'flipkart', label:'Flipkart' },
-  { id:'bookswagon', label:'BooksWagon' },
-];
-const MOCK_ITEMS = [
-  { title:'Aadujeevitham', author:'Benyamin', isbn:'978938', lang:'Malayalam', publisher:'DC Books', offers:[
-    { store:'dcbooks', price:230, url:'#', image:'https://placehold.co/300x400?text=Aadujeevitham' },
-    { store:'kbs',     price:225, url:'#', image:'https://placehold.co/300x400?text=Aadujeevitham' },
-    { store:'indulekha',price:240, url:'#', image:'https://placehold.co/300x400?text=Aadujeevitham' },
-  ]},
-  { title:'Randamoozham', author:'M.T. Vasudevan Nair', isbn:'978812', lang:'Malayalam', publisher:'Current Books', offers:[
-    { store:'indulekha',price:195, url:'#', image:'https://placehold.co/300x400?text=Randamoozham' },
-    { store:'kbs',      price:189, url:'#', image:'https://placehold.co/300x400?text=Randamoozham' },
-    { store:'amazon',   price:199, url:'#', image:'https://placehold.co/300x400?text=Randamoozham' },
-  ]},
-  { title:'Manjaveyil Maranangal', author:'Benyamin', isbn:'978935', lang:'Malayalam', publisher:'DC Books', offers:[
-    { store:'dcbooks', price:260, url:'#', image:'https://placehold.co/300x400?text=Manjaveyil' },
-    { store:'kbs',     price:255, url:'#', image:'https://placehold.co/300x400?text=Manjaveyil' },
-  ]},
-  { title:'Aarachar', author:'K.R. Meera', isbn:'9789384', lang:'Malayalam', publisher:'DC Books', offers:[
-    { store:'dcbooks',   price:320, url:'#', image:'https://placehold.co/300x400?text=Aarachar' },
-    { store:'indulekha', price:315, url:'#', image:'https://placehold.co/300x400?text=Aarachar' },
-  ]},
-  { title:'Oru Desathinte Katha', author:'S.K. Pottekkatt', isbn:'97881264', lang:'Malayalam', publisher:'DC Books', offers:[
-    { store:'dcbooks', price:280, url:'#', image:'https://placehold.co/300x400?text=Oru+Desathinte+Katha' },
-    { store:'kbs',     price:275, url:'#', image:'https://placehold.co/300x400?text=Oru+Desathinte+Katha' },
-  ]},
-  { title:'The Alchemist', author:'Paulo Coelho', isbn:'978006', lang:'English', publisher:'HarperCollins', offers:[
-    { store:'amazon',    price:299, url:'#', image:'https://placehold.co/300x400?text=The+Alchemist' },
-    { store:'flipkart',  price:279, url:'#', image:'https://placehold.co/300x400?text=The+Alchemist' },
-    { store:'bookswagon',price:285, url:'#', image:'https://placehold.co/300x400?text=The+Alchemist' },
-  ]},
-  { title:'1984', author:'George Orwell', isbn:'9780451524935', lang:'English', publisher:'Penguin', offers:[
-    { store:'amazon',   price:249, url:'#', image:'https://placehold.co/300x400?text=1984' },
-    { store:'flipkart', price:235, url:'#', image:'https://placehold.co/300x400?text=1984' },
-  ]},
-  { title:'The Kite Runner', author:'Khaled Hosseini', isbn:'9781594631931', lang:'English', publisher:'Bloomsbury', offers:[
-    { store:'amazon',   price:329, url:'#', image:'https://placehold.co/300x400?text=Kite+Runner' },
-    { store:'flipkart', price:315, url:'#', image:'https://placehold.co/300x400?text=Kite+Runner' },
-  ]},
-  { title:'The God of Small Things', author:'Arundhati Roy', isbn:'9780670086067', lang:'English', publisher:'Penguin', offers:[
-    { store:'amazon',   price:349, url:'#', image:'https://placehold.co/300x400?text=God+of+Small+Things' },
-    { store:'flipkart', price:339, url:'#', image:'https://placehold.co/300x400?text=God+of+Small+Things' },
-  ]},
-  { title:'Sapiens', author:'Yuval Noah Harari', isbn:'9780099590088', lang:'English', publisher:'Harper', offers:[
-    { store:'amazon',   price:399, url:'#', image:'https://placehold.co/300x400?text=Sapiens' },
-    { store:'flipkart', price:389, url:'#', image:'https://placehold.co/300x400?text=Sapiens' },
-  ]},
-];
-
-// ========= Helpers =========
-const uniq = a => [...new Set(a)];
-const fmtINR = n => '₹' + Number(n).toLocaleString('en-IN');
-const keyOf = i => (i.isbn && String(i.isbn).trim()) || `${i.title}|${i.author}`;
-const storeLabel = id => (STORES.find(s=>s.id===id)||{label:id}).label;
-
-function computeBest(items,{lang='',publisher=''}={}){
-  const rows=[];
-  for(const item of items){
-    if(lang && item.lang!==lang) continue;
-    if(publisher && (item.publisher||'').toLowerCase()!==publisher.toLowerCase()) continue;
-    for(const o of item.offers){ rows.push({
-      key:keyOf(item), title:item.title, author:item.author, isbn:item.isbn,
-      lang:item.lang, publisher:item.publisher, store:o.store, price:o.price,
-      url:o.url, image:o.image
-    }); }
-  }
-  const byKey=new Map();
-  for(const r of rows){ const cur=byKey.get(r.key); if(!cur||r.price<cur.price) byKey.set(r.key,r); }
-  return { best:[...byKey.values()].sort((a,b)=>a.price-b.price), all:rows };
-}
-
-function renderCardBest(b){
-  return `
-  <a href="${b.url}" target="_blank" rel="noopener" class="block bg-white border rounded-2xl p-3 hover:shadow">
-    ${b.image?`<img src="${b.image}" alt="${b.title} cover" class="w-full h-40 object-cover rounded-lg mb-2"/>`:''}
-    <div class="font-medium line-clamp-2">${b.title}</div>
-    <div class="text-xs text-slate-500">${b.author||''}</div>
-    <div class="mt-2 flex items-center gap-2 text-sm">
-      <span class="font-semibold">${fmtINR(b.price)}</span>
-      <span class="text-slate-400">•</span>
-      <span class="text-slate-600">${storeLabel(b.store)}</span>
-      ${b.lang?`<span class=\"ml-auto text-[10px] px-2 py-0.5 rounded-full bg-slate-100 border\">${b.lang}</span>`:''}
-    </div>
-    <div class="text-[10px] text-slate-400 mt-1">${b.publisher?b.publisher+' • ':''}${b.isbn?'ISBN '+b.isbn:''}</div>
-  </a>`;
-}
-function renderCardAll(r){
-  return `
-  <a href="${r.url}" target="_blank" rel="noopener" class="block bg-white border rounded-2xl p-3 hover:shadow">
-    ${r.image?`<img src="${r.image}" alt="${r.title} cover" class="w-full h-40 object-cover rounded-lg mb-2"/>`:''}
-    <div class="font-medium line-clamp-2">${r.title}</div>
-    <div class="text-xs text-slate-500">${r.author||''}</div>
-    <div class="mt-2 flex items-center gap-2 text-sm">
-      <span class="font-semibold">${fmtINR(r.price)}</span>
-      <span class="text-slate-400">•</span>
-      <span class="text-slate-600">${storeLabel(r.store)}</span>
-      ${r.lang?`<span class=\"ml-auto text-[10px] px-2 py-0.5 rounded-full bg-slate-100 border\">${r.lang}</span>`:''}
-    </div>
-  </a>`;
-}
-
-function hydrateFilters(items){
-  const langs=uniq(items.map(i=>i.lang).filter(Boolean)).sort();
-  const pubs=uniq(items.map(i=>i.publisher).filter(Boolean)).sort();
-  const langSel=document.getElementById('lang');
-  const pubSel=document.getElementById('publisher');
-  for(const l of langs){ const o=document.createElement('option'); o.value=l; o.textContent=l; langSel.appendChild(o); }
-  for(const p of pubs){ const o=document.createElement('option'); o.value=p; o.textContent=p; pubSel.appendChild(o); }
-}
-
-function doSearch(ev){
-  if(ev) ev.preventDefault();
-  const q=(document.getElementById('q').value||'').trim().toLowerCase();
-  const lang=document.getElementById('lang').value;
-  const publisher=document.getElementById('publisher').value;
-  const filtered=MOCK_ITEMS.filter(it=>{
-    if(!q) return true;
-    return (
-      (it.title && it.title.toLowerCase().includes(q))||
-      (it.author && it.author.toLowerCase().includes(q))||
-      (it.isbn && String(it.isbn).toLowerCase().includes(q))
-    );
-  });
-  const {best,all}=computeBest(filtered,{lang,publisher});
-  document.getElementById('resultMeta').textContent=`${best.length} best deals • ${all.length} total offers`;
-  document.getElementById('bestGrid').innerHTML=best.map(renderCardBest).join('');
-  document.getElementById('allGrid').innerHTML=all.map(renderCardAll).join('');
-}
 
 function renderTop(list, elId){
   const el=document.getElementById(elId);
   el.innerHTML=list.map(b=>`
     <div class="bg-white border rounded-xl p-3 hover:shadow">
-      <img src="${b.img}" alt="${b.title}" class="w-full h-48 object-cover mb-2 rounded"/>
+      ${imgTag(b.img, b.title, 'w-full h-48 object-cover mb-2 rounded')}
       <div class="font-medium line-clamp-2">${b.title}</div>
       <div class="text-xs text-slate-500">${b.author}</div>
-      <div class="text-xs text-slate-400 mt-1">${b.lang}</div>
     </div>`).join('');
 }
 
-// ========= init =========
+// ----- Best Price (simple demo data) -----
+const MOCK_ITEMS=[
+  { title:'Aadujeevitham', author:'Benyamin', offer:{store:'DC Books', price:230, url:'#'}, img:coverUrl('9788126421062','Aadujeevitham') },
+  { title:'Randamoozham', author:'M.T. Vasudevan Nair', offer:{store:'Amazon India', price:199, url:'#'}, img:coverUrl('9788126402719','Randamoozham') },
+  { title:'The Alchemist', author:'Paulo Coelho', offer:{store:'Flipkart', price:279, url:'#'}, img:coverUrl('9780061122415','The Alchemist') },
+];
+function renderBest(){
+  const el=document.getElementById('bestGrid');
+  el.innerHTML = MOCK_ITEMS.map(it=>`
+    <a href='${it.offer.url}' target='_blank' rel='noopener' class='bg-white border rounded-xl p-3 hover:shadow block'>
+      ${imgTag(it.img, it.title, 'w-full h-40 object-cover mb-2 rounded')}
+      <div class='font-medium line-clamp-2'>${it.title}</div>
+      <div class='text-xs text-slate-500'>${it.author}</div>
+      <div class='mt-2 text-sm font-semibold'>${fmtINR(it.offer.price)}</div>
+      <div class='text-[11px] text-slate-500'>${it.offer.store}</div>
+    </a>`).join('');
+  document.getElementById('resultMeta').textContent=`${MOCK_ITEMS.length} best deals`;
+}
+
+
+// ----- Reviews: fixed 5 with icons (via Google S2 favicons) -----
+const REVIEW_SITES = [
+  { name:'The Book Review India', url:'https://www.thebookreviewindia.org' },
+  { name:'Indian Book Critics', url:'https://indianbookcritics.in/reviews' },
+  { name:'The Last Critic', url:'https://thelastcritic.com/category/book-reviews' },
+  { name:'BookGeeks', url:'https://www.bookgeeks.in/category/book-reviews' },
+  { name:'Anu Reviews', url:'https://www.anureviews.com/category/books' },
+];
+function renderReviewSites(){
+  const el=document.getElementById('reviewSites');
+  el.innerHTML = REVIEW_SITES.map(s=>{
+    const u = new URL(s.url);
+    const icon = `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=64`;
+    return `
+      <a href='${s.url}' target='_blank' rel='noopener' class='bg-white border rounded-xl p-3 hover:shadow block text-center'>
+        ${imgTag(icon, s.name, 'mx-auto w-12 h-12 mb-2 rounded')}
+        <div class='text-sm font-medium ellipsis'>${s.name}</div>
+      </a>`;
+  }).join('');
+}
+
+function doSearch(e){
+  if(e) e.preventDefault();
+  renderBest();
+}
+
+// ----- init -----
 (function init(){
   document.getElementById('yr').textContent=new Date().getFullYear();
-  hydrateFilters(MOCK_ITEMS);
+  document.getElementById('searchForm').addEventListener('submit', doSearch);
   renderTop(MALAYALAM_TOP,'malayalamTop');
   renderTop(ENGLISH_TOP,'englishTop');
-  document.getElementById('searchForm').addEventListener('submit', doSearch);
-  doSearch();
+  renderBest();
+  renderManorama();
+  renderReviewSites();
 })();
 </script>
 
